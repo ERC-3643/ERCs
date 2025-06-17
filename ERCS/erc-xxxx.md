@@ -315,7 +315,6 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
 
 ### Signature Replay
 - The message format includes the identity address to prevent cross-identity replay attacks
-- Implementations SHOULD consider adding nonces or timestamps for additional protection
 
 ## Copyright
 
