@@ -1,387 +1,321 @@
 ---
-eip: 7xxx
+eip: xxxx
 title: ONCHAINID - An Onchain Identity System
 description: Formalizing ONCHAINID, a self-sovereign identity system on Ethereum.
-author: Joachim Lebrun (@Joachim-Lebrun), Kevin Thizy (@Nakasar), Matthew Pinnock (@AureliusEth), Luc Falempin (@lfalempin), Tony Malghem (@TonyMalghem)
+author: Joachim Lebrun (@Joachim-Lebrun), Luc Falempin (@lfalempin), Tony Malghem (@TonyMalghem)
 discussions-to: //TBD
 status: Draft
 type: Standards Track
 category: ERC
-created: 2024-xx-xx
+created: 2025-xx-xx
 ---
 
 ## Abstract
 
-ONCHAINID is a blockchain-based identity system that combines the functionalities of a key manager and a claim holder.
-The key manager holds keys to sign actions and execute instructions, while the claim holder manages claims that can be
-attested by third parties or self-attested. The identity contract defined by ONCHAINID `IIdentity` integrates these
-functionalities, providing a comprehensive solution for individuals and organizations to enforce compliance and
-access digital assets or protocols with permission mechanisms.
+This ERC defines a minimal interface for on-chain identity contracts (ONCHAINID) that can hold and manage cryptographic claims from trusted issuers. The standard provides the essential functionality needed for identity verification in decentralized applications while maintaining compatibility with existing smart wallet architectures and the ERC-3643 ecosystem.
 
 ## Motivation
 
-The motivation behind ONCHAINID is to address the inadequacies of the existing Ethereum protocol in managing complex
-account structures and verifying onchain claims about an identity. The current protocol lacks a standardized way for
-DApps and smart contracts to check the claims about an identity, and there is no formalized way to manage these claims
-onchain. Moreover, the protocol does not provide a comprehensive solution for managing keys associated with an account.
+The blockchain ecosystem has seen significant growth in identity-based applications, particularly in regulated token standards like ERC-3643 which has enabled the tokenization of billions of dollars in assets. Current identity solutions reference informal standards (ERC734/ERC735) that were never formalized through the EIP process, creating uncertainty and fragmentation in implementations.
 
-ONCHAINID aims to provide a self-sovereign identity system on the blockchain that allows users to create and manage
-their own identities. This identification solution enables compliance and identity verifications within the
-pseudonymous framework of public blockchain networks. It integrates the functionalities of a key manager and a
-claim holder, as proposed in the Key Manager and Claim Holder proposals by Fabian Vogelsteller. However, these
-proposals were never formalized as EIPs, remaining at the issue state. This EIP aims to formalize these proposals and
-integrate them into the ONCHAINID system.
+With the expanding adoption of smart wallets and the need for standardized identity verification in DeFi protocols, there is a critical need for a minimal, flexible on-chain identity standard that:
+
+1. Enables any contract to function as an identity holder
+2. Supports claim-based attestations from trusted issuers
+3. Maintains compatibility with existing smart wallet architectures
+4. Provides sufficient functionality for compliance and verification use cases
+5. Remains lightweight to encourage broad adoption
 
 ## Specification
 
-### Key Management
-Keys are cryptographic public keys, or contract addresses that have permission to operate the identity or to interact with services in its behalf.
+The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
 
-Those permissions are represented by the purposes they key is associated with. The list of purposes is an array of `uint256` and the following purposes are introduced:
+### Core Interface
 
-- `1`: MANAGEMENT keys, which can manage the identity (considered an Owner of the identity, a MANAGEMENT key have all permissions).
-- `2`: EXECUTION keys, which can call the approve method on the identity to execute transaction sent by the identity to other contracts.
-- `3`: CLAIM keys, which can add, remove and update claims on the ONCHAINID.
-
-The structure should be as follows:
-
-- `key`: A public key owned by this identity
-  - `purpose`: `uint256[]` Array of the key types, like 1 = MANAGEMENT, 2 = EXECUTION, 3 = CLAIM
-  - `keyType`: The type of key used, which would be a `uint256` for different key types. e.g. 1 = ECDSA, 2 = RSA, etc.
-  - `key`: `bytes32` The public key. // for non-hex and long keys, its the Keccak256 hash of the key
-  
-  ```solidity
-  struct Key {
-    uint256[] purposes;
-    uint256 keyType;
-    bytes32 key;
-  }
-  ```
-#### getKey
-Returns the full key data, if present in the identity.
+Every compliant contract MUST implement the following interface:
 
 ```solidity
-function getKey(bytes32 _key) constant returns(uint256[] purposes, uint256 keyType, bytes32 key);
-```
+// SPDX-License-Identifier: CC0-1.0
+pragma solidity ^0.8.0;
 
-#### keyHasPurpose
-Returns `TRUE` if a key is present and has the given purpose. If the key is not present it returns `FALSE`.
-
-```solidity
-function keyHasPurpose(bytes32 _key, uint256 purpose) constant returns(bool exists);
-```
-
-#### getKeysByPurpose
-Returns an array of public key `bytes32` held by this identity.
-
-```solidity
-function getKeysByPurpose(uint256 _purpose) constant returns(bytes32[] keys);
-```
-
-#### addKey
-Adds a `_key` to the identity. The `_purpose` specifies the purpose of the key.
-
-**MUST** only be done by keys of purpose `1`, or the identity itself. If it's the identity itself, the approval process will determine its approval.
-
-**Triggers Event**: `KeyAdded`
-
-```solidity
-function addKey(bytes32 _key, uint256 _purpose, uint256 _keyType) returns (bool success);
-```
-
-#### removeKey
-Removes `_key` from the identity.
-
-**MUST** only be done by keys of purpose `1`, or the identity itself. If it's the identity itself, the approval process will determine its approval.
-
-**Triggers Event**: `KeyRemoved`
-
-```solidity
-function removeKey(bytes32 _key, uint256 _purpose) returns (bool success);
-```
-
-### Claim Management
-
-#### Claim storage
-
-An identity contract can hold claims. Claims are structured data that bear information, being by the content of
-the `data` property or by its sole existence.
-
-A claim is structured as follow:
-```solidity
-struct claim {
-  uint256 topic;
-  uint256 scheme;
-  address issuer;
-  bytes signature;
-  bytes data;
-  string uri;
+interface IERC_XXXX_OnChainIdentity {
+    
+    // Events
+    event ClaimAdded(
+        bytes32 indexed claimId,
+        uint256 indexed topic,
+        uint256 scheme,
+        address indexed issuer,
+        bytes signature,
+        bytes data,
+        string uri
+    );
+    
+    event ClaimChanged(
+        bytes32 indexed claimId,
+        uint256 indexed topic,
+        uint256 scheme,
+        address indexed issuer,
+        bytes signature,
+        bytes data,
+        string uri
+    );
+    
+    // Required Functions
+    function addClaim(
+        uint256 _topic,
+        uint256 _scheme,
+        address _issuer,
+        bytes calldata _signature,
+        bytes calldata _data,
+        string calldata _uri
+    ) external returns (bytes32 claimId);
+    
+    function getClaim(bytes32 _claimId) external view returns (
+        uint256 topic,
+        uint256 scheme,
+        address issuer,
+        bytes memory signature,
+        bytes memory data,
+        string memory uri
+    );
+    
+    function getClaimIdsByTopic(uint256 _topic) external view returns (bytes32[] memory claimIds);
+    
+    function isClaimValid(
+        address _identity,
+        uint256 _claimTopic,
+        bytes calldata _signature,
+        bytes calldata _data
+    ) external view returns (bool claimValid);
 }
 ```
 
-| Field       | Description                                                                                                                               |
-|-------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `topic`     | An integer representing the subject of the claim.                                                                                         |
-| `scheme`    | An integer specifying the format of the claim data property.                                                                              |
-| `issuer`    | The contract address of the Claim Issuer that issued the claim (for self-attested claims, this will be the identity contract address).    |
-| `signature` | The signature of the claim by the claim issuer (signature method is not standardized).                                                    |
-| `data`      | Data property of the claim (digest of the data is included in the signature). The content is formatted according to the specified scheme. |
-| `uri`       | Claims may reference an external storage (IPFS, API, etc) for additional content.                                                         |
 
-> This specification does not cover the algorithm and methods for claim signature. Each claim issuer may use different keys format.
+### Optional Execution Interface
 
-##### Adding a claim
-
-To store or update a claim on the Identity, the method `addClaim()` is called.
-
-This method MUST emit a `ClaimAdded` event when a claim is stored, and `ClaimChanged` when a claim is updated.
+Contracts that support nested execution patterns (particularly claim issuers) SHOULD implement:
 
 ```solidity
-/**
- * @dev Emitted when a claim was added.
- *
- * Specification: MUST be triggered when a claim was successfully added.
- */
-event ClaimAdded(
-  bytes32 indexed claimId,
-  uint256 indexed topic,
-  uint256 scheme,
-  address indexed issuer,
-  bytes signature,
-  bytes data, 
-  string uri
-);
+interface IERC_XXXX_Execution {
+    
+    // Events
+    event ExecutionRequested(
+        uint256 indexed executionId,
+        address indexed to,
+        uint256 indexed value,
+        bytes data
+    );
+    
+    event Executed(
+        uint256 indexed executionId,
+        address indexed to,
+        uint256 indexed value,
+        bytes data
+    );
+    
+    // Function
+    function execute(
+        address _to,
+        uint256 _value,
+        bytes calldata _data
+    ) external payable returns (uint256 executionId);
+}
 ```
 
-```solidity
-/**
- * @dev Emitted when a claim was changed.
- *
- * Specification: MUST be triggered when addClaim was successfully called on an existing claimId.
- */
-event ClaimChanged(
-  bytes32 indexed claimId,
-  uint256 indexed topic,
-  uint256 scheme,
-  address indexed issuer,
-  bytes signature,
-  bytes data,
-  string uri
-);
-```
 
-An Identity must store only one claim of a given topic for a claim issuer. Attempting to add another claim with the
-same pair of topic and issuer MUST result in replacing the existing claim with the new one (and emits the
-`ClaimChanged` instead of the `ClaimAdded`).
+### Behavior Specifications
 
-##### Removing a claim
+#### Claim Management
 
-To remove a claim from the Identity, the method `removeClaim()` is called.
+1. **Claim IDs**: MUST be generated using `keccak256(abi.encode(_issuer, _topic))`
+2. **Adding Claims**: 
+   - MUST emit `ClaimAdded` for new claims
+   - MUST emit `ClaimChanged` for updates to existing claims
+   - MUST validate claims from external issuers using `isClaimValid`
+   - MAY allow self-attested claims without validation
+3. **Claim Retrieval**: MUST return complete claim data including metadata
+4. **Topic Filtering**: MUST support retrieval of all claims by topic
 
-The method MUST emit a `ClaimRemoved` event.
+#### Claim Validation
 
-```solidity
-/**
- * @dev Emitted when a claim was removed.
- *
- * Specification: MUST be triggered when removeClaim was successfully called.
- */
-event ClaimRemoved(
-  bytes32 indexed claimId,
-  uint256 indexed topic,
-  uint256 scheme,
-  address indexed issuer,
-  bytes signature,
-  bytes data,
-  string uri
-);
-```
+1. **Signature Verification**: MUST verify signatures against expected message format: `keccak256(abi.encode(_identity, _claimTopic, _data))`
+2. **Issuer Authority**: MUST validate that the signer has appropriate authority to issue claims
+3. **Revocation**: SHOULD check revocation status if the issuer supports it
 
-##### Accessing claims
+#### Execution (Optional)
 
-Identity contracts MUST expose methods to retrieve claims.
-
-To retrieve a claim by its ID, the method `getClaim()` is called.
-The ID of the claim is computed with `keccak256(abi.encode(issuer, topic))`. One issuer can have at most one active
-claim of a given topic for an identity.
-This method MUST return the complete claim structure:
-
-```solidity
-/**
- * @dev Get a claim by its ID.
- *
- * Claim IDs are generated using `keccak256(abi.encode(address issuer_address, uint256 topic))`.
- */
-function getClaim(bytes32 _claimId)
-external view returns(
-    uint256 topic,
-    uint256 scheme,
-    address issuer,
-    bytes memory signature,
-    bytes memory data,
-    string memory uri
-);
-```
-
-For convenience, the method `getClaimIdsByTopic()` is introduced as a mandatory implementation.
-This method MUST return an array of claim IDs for a given topic.
-
-```solidity
-/**
- * @dev Returns an array of claim IDs by topic.
- */
-function getClaimIdsByTopic(uint256 _topic) external view returns(bytes32[] memory claimIds);
-```
-
-> An identity MAY not send all claims of a given topics but only a subset of them. An implementation COULD let the
-> identity owner select only a few claims to be presented each time.
-
-#### Self-attested claims
-
-Claims are usually issued by third parties about an identity, but some claims are intended to be created by the
-identity owner themselves. These claims are called self-attested claims.
-
-Self-attested claims addition, updates and removals MUST trigger the `ClaimAdded`, `ClaimChanged` and `ClaimRemoved`
-events, and they SHOULD be managed by the same methods `addClaim` and `removeClaim`.
-
-Self-attested claims uses the same validity check regarding signatures (algorithms are left to the appreciation of
-implementers). Specifications does not include a revoke mechanism, however the Identity contract exposes
-a `isClaimValid` method that MUST verify the claim signature and return true if it is valid, or false otherwise.
-
-The `isClaimValid` method MAY implement a revocation behavior based on timestamp, revocation lists or any other
-method deemed necessary by the implementer, returning true or false depending on the claim validity status.
-
-```solidity
-/**
- * @dev Checks if a claim is valid.
- * @param identity the identity contract related to the claim.
- * @param claimTopic the claim topic of the claim
- * @param sig the signature of the claim
- * @param data the data field of the claim
- * @return claimValid true if the claim is valid, false otherwise
- */
-function isClaimValid(
-    address identity,
-    uint256 claimTopic,
-    bytes calldata sig,
-    bytes calldata data)
-external view returns (bool);
-```
-
-### Identity usage
-
-Apart from keys and claims management, the Identity contract specified in ONCHAINID allows for execution requests and
-approvals. A contract (or a signer) may create a new execution request by calling the `execute()` method.
-Execute may be native transfers of value from the identity contract balance to another address, or execution of methods
-on other contracts. When an execution request is created, it awaits approval from authorized key. Upon validation, the
-operation is performed.
-
-This behavior allows Identity to hold tokens or to act as signers or simplified "smart wallets". The complexity and
-details of the approval process are left to the discretion of implementers.
-
-#### execute
-Passes an execution instruction to the Key Manager.
-**SHOULD** require approve to be called with one or more keys of purpose `1` or `2` to approve this execution.
-
-Execute **COULD** be used as the only accessor for `addKey`, `removeKey` and `addClaim` and `removeClaim`.
-
-Returns `executionId`: SHOULD be sent to the `approve ` function, to approve or reject this execution.
-
-**Triggers Event**: `ExecutionRequested`
-
-**Triggers on direct execution Event**: `Executed`
-
-```solidity
-function execute(address _to, uint256 _value, bytes _data) returns (uint256 executionId);
-```
-
-#### approve
-Approves an execution or claim addition.
-This **SHOULD** require the approval of key purpose `1`, if the `_to` of the execution is the identity contract itself, to successfully approve an execution.
-And **COULD** require the approval of key purpose `2`, if the `_to` of the execution is another contract, to successfully approve an execution.
-
-**Triggers Event**: `Approved`
-
-**Triggers on successful execution Event**: `Executed`
-
-```solidity
-function approve(uint256 _id, bool _approve) returns (bool success);
-```
-
-### Events
-
-Events are very important because most Identity management application will need these to display appropriate
-information about the identity state.
-
-#### `KeyAdded`
-
-MUST be triggered when `addKey` was successfully called.
-
-```solidity
-event KeyAdded(bytes32 indexed key, uint256 indexed purpose, uint256 indexed keyType);
-```
-
-#### `KeyRemoved`
-
-MUST be triggered when `removeKey` was successfully called.
-
-```solidity
-event KeyRemoved(bytes32 indexed key, uint256 indexed purpose, uint256 indexed keyType);
-```
-
-#### `ExecutionRequested`
-
-This events means an execution request was created and is awaiting approval (note: if the execution was immediately
-approved and then performed, the ExecutionRequest would be followed by an Executed event in the same transaction).
-
-MUST be triggered when `execute` was successfully called.
-
-```solidity
-event ExecutionRequested(uint256 indexed executionId, address indexed to, uint256 indexed value, bytes data);
-```
-
-#### `Executed`
-
-MUST be triggered when `approve` was called and the execution was successfully approved.
-
-```solidity
-event Executed(uint256 indexed executionId, address indexed to, uint256 indexed value, bytes data);
-```
-
-#### `Approved`
-
-MUST be triggered when `approve` was successfully called.
-
-```solidity
-event Approved(uint256 indexed executionId, bool approved);
-```
+1. **Transaction Wrapping**: SHOULD support wrapping calls for nested operations
+2. **Access Control**: MAY implement custom authorization logic for executions
+3. **Event Emission**: MUST emit appropriate events for execution requests and completions
 
 ## Rationale
 
+### Minimal Interface Design
 
+This standard intentionally excludes several features from informal ERC734/ERC735 specifications to maximize compatibility and adoption:
+
+**Excluded Features:**
+- **Key Management (ERC734)**: Different smart wallets have varying access control mechanisms. Requiring specific key management would prevent many existing wallets from implementing this standard.
+- **Claim Removal**: Basic compliance use cases rarely require claim removal. Revocation can be handled by claim issuers through their validation logic.
+- **Approval Mechanisms**: Complex approval workflows add unnecessary overhead for simple claim management.
+
+**Included Features:**
+- **Claim Storage and Retrieval**: Essential for any identity verification system
+- **Claim Validation**: Required for trust and verification between parties
+- **Flexible Execution**: Enables advanced use cases while remaining optional
+- **Event Logging**: Necessary for off-chain monitoring and compliance tracking
+
+### Smart Wallet Compatibility
+
+By focusing only on claim management and avoiding key management requirements, this standard allows:
+- Existing smart wallets to become identity holders without architectural changes
+- Custom access control implementations to coexist with identity functionality
+- Progressive adoption without breaking existing systems
+
+### ERC-3643 Ecosystem Integration
+
+The standard provides sufficient functionality for regulated token compliance:
+- Identity verification through claims
+- Trusted issuer attestations
+- Compliance monitoring through events
+- Integration with existing infrastructure
 
 ## Backwards Compatibility
 
-There are no known standard using the previous KeyHolder and ClaimHolder proposals. Most methods used are inspired by
-specifications of KeyHolder and ClaimHolder introduces by Fabian Vogelsteller (@frozeman), hence application leveraging
-claims and keys functionalities should still be compatible.
+This standard is designed to be compatible with existing ERC734/ERC735 implementations by providing a subset of their functionality. Existing implementations can easily adopt this standard by exposing the required interface methods.
+
+## Reference Implementation
+
+```solidity
+// SPDX-License-Identifier: CC0-1.0
+pragma solidity ^0.8.0;
+
+import "./IERC_XXXX_OnChainIdentity.sol";
+
+contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
+    
+    struct Claim {
+        uint256 topic;
+        uint256 scheme;
+        address issuer;
+        bytes signature;
+        bytes data;
+        string uri;
+    }
+    
+    mapping(bytes32 => Claim) private claims;
+    mapping(uint256 => bytes32[]) private claimsByTopic;
+    mapping(address => bool) private authorizedClaimAdders;
+    
+    modifier onlyAuthorized() {
+        require(authorizedClaimAdders[msg.sender] || msg.sender == address(this), "Unauthorized");
+        _;
+    }
+    
+    function addClaim(
+        uint256 _topic,
+        uint256 _scheme,
+        address _issuer,
+        bytes calldata _signature,
+        bytes calldata _data,
+        string calldata _uri
+    ) external override onlyAuthorized returns (bytes32 claimId) {
+        claimId = keccak256(abi.encode(_issuer, _topic));
+        
+        if (_issuer != address(this)) {
+            require(
+                IERC_XXXX_OnChainIdentity(_issuer).isClaimValid(address(this), _topic, _signature, _data),
+                "Invalid claim"
+            );
+        }
+        
+        bool isNew = claims[claimId].issuer == address(0);
+        
+        claims[claimId] = Claim({
+            topic: _topic,
+            scheme: _scheme,
+            issuer: _issuer,
+            signature: _signature,
+            data: _data,
+            uri: _uri
+        });
+        
+        if (isNew) {
+            claimsByTopic[_topic].push(claimId);
+            emit ClaimAdded(claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
+        } else {
+            emit ClaimChanged(claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
+        }
+        
+        return claimId;
+    }
+    
+    function getClaim(bytes32 _claimId) external view override returns (
+        uint256 topic,
+        uint256 scheme,
+        address issuer,
+        bytes memory signature,
+        bytes memory data,
+        string memory uri
+    ) {
+        Claim storage claim = claims[_claimId];
+        return (claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+    }
+    
+    function getClaimIdsByTopic(uint256 _topic) external view override returns (bytes32[] memory claimIds) {
+        return claimsByTopic[_topic];
+    }
+    
+    function isClaimValid(
+        address _identity,
+        uint256 _claimTopic,
+        bytes calldata _signature,
+        bytes calldata _data
+    ) external view override returns (bool claimValid) {
+        bytes32 dataHash = keccak256(abi.encode(_identity, _claimTopic, _data));
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
+        
+        address recovered = _recoverSigner(prefixedHash, _signature);
+        return authorizedClaimAdders[recovered];
+    }
+    
+    function _recoverSigner(bytes32 _hash, bytes memory _signature) private pure returns (address) {
+        if (_signature.length != 65) return address(0);
+        
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        
+        assembly {
+            r := mload(add(_signature, 32))
+            s := mload(add(_signature, 64))
+            v := byte(0, mload(add(_signature, 96)))
+        }
+        
+        if (v < 27) v += 27;
+        
+        return ecrecover(_hash, v, r, s);
+    }
+}
+```
+
 
 ## Security Considerations
 
-### Privacy
+### Claim Validation
+- Implementations MUST properly validate signatures to prevent impersonation
+- Claim issuers SHOULD implement revocation mechanisms for compromised claims
+- Applications SHOULD verify claim freshness and validity before relying on them
 
-Because claims may be related to personal information, developers and especially claim issuers are expected to consider
-the privacy implications of the claims they issue. Especially:
-- The content of the claim `data` property are to be considered public and should never contain sensitive information,
-even encrypted. For such information, it is recommended to use an integrity hash of information stored offchain
-combined with a random string and to include the hash in the claim data. Digest algorithms choice is left to claim
-issuers and they may differ from one to another.
-- The existence of a claim with a given topic could reveal information about the identity. Claim issuers should not
-issue claims too specific and avoid claims when not necessary.
+### Access Control
+- Implementations MUST implement appropriate access control for claim addition
+- Smart wallets SHOULD integrate identity functions with their existing permission systems
+- Execution functions (if implemented) MUST have proper authorization checks
 
-When using an Identity, identity owners (and services managing identities) should keep in mind that:
-- identity information should as much as possible be kept off-chain. On-chain claims should only be added to the
-identity when they are necessary (usually to interact with permission smart contracts).
+### Signature Replay
+- The message format includes the identity address to prevent cross-identity replay attacks
+- Implementations SHOULD consider adding nonces or timestamps for additional protection
 
 ## Copyright
 
