@@ -321,15 +321,6 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         
         return executionId;
     }
-    
-    function _supportsInterface(address _contract, bytes4 _interfaceId) internal view returns (bool) {
-        // Simple interface detection - could use ERC165 if needed
-        try IERC165(_contract).supportsInterface(_interfaceId) returns (bool supported) {
-            return supported;
-        } catch {
-            return false;
-        }
-    }
 }
 
 contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
