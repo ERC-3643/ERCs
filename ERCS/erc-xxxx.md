@@ -103,9 +103,9 @@ interface IERC_XXXX_ClaimIssuer {
 }
 ```
 
-### Optional Execution Interface
+### Execution Interface
 
-Contracts that support nested execution patterns (particularly claim issuers) SHOULD implement:
+Identity contracts SHOULD implement the execution interface to maintain compatibility with existing claim issuer workflows:
 
 ```solidity
 interface IERC_XXXX_Execution {
@@ -154,7 +154,7 @@ interface IERC_XXXX_Execution {
 2. **Issuer Authority**: MUST validate that the signer has appropriate authority to issue claims
 3. **Revocation**: SHOULD check revocation status if the issuer supports it
 
-#### Execution (Optional)
+#### Execution (for Identity Compatibility)
 
 1. **Transaction Wrapping**: SHOULD support wrapping calls for nested operations
 2. **Access Control**: MAY implement custom authorization logic for executions
@@ -162,35 +162,55 @@ interface IERC_XXXX_Execution {
 
 ## Rationale
 
+### Separation of Concerns
+This standard separates identity holding from claim issuing to provide maximum flexibility:
+**Core Identity Interface**:
+- Minimal requirements for any contract to be considered an identity
+- Focused on claim storage and retrieval
+- Compatible with diverse smart wallet architectures
+
+**Claim Issuer Interface**:
+- Only required for contracts that issue claims to other identities
+- Allows specialized validation logic per issuer
+- Enables trust relationships between different identity types
+
+**Execution Interface**:
+- SHOULD be implemented by identities for ecosystem compatibility
+- Many existing claim issuers expect to interact with identities through execution patterns
+- Allows claims to be added through the identity's own access control mechanisms
+- Identity contracts that do not implement this interface may break compatibility with existing claim issuer workflows
+
 ### Minimal Interface Design
-
 This standard intentionally excludes several features from informal ERC734/ERC735 specifications to maximize compatibility and adoption:
-
-**Excluded Features:**
+**Excluded from Core Interface:**
 - **Key Management (ERC734)**: Different smart wallets have varying access control mechanisms. Requiring specific key management would prevent many existing wallets from implementing this standard.
+- **Claim Validation**: Moved to separate interface since only claim issuers need this functionality
 - **Claim Removal**: Basic compliance use cases rarely require claim removal. Revocation can be handled by claim issuers through their validation logic.
 - **Approval Mechanisms**: Complex approval workflows add unnecessary overhead for simple claim management.
 
-**Included Features:**
+**Included in Core Interface:**
 - **Claim Storage and Retrieval**: Essential for any identity verification system
-- **Claim Validation**: Required for trust and verification between parties
-- **Flexible Execution**: Enables advanced use cases while remaining optional
 - **Event Logging**: Necessary for off-chain monitoring and compliance tracking
 
 ### Smart Wallet Compatibility
-
 By focusing only on claim management and avoiding key management requirements, this standard allows:
 - Existing smart wallets to become identity holders without architectural changes
 - Custom access control implementations to coexist with identity functionality
 - Progressive adoption without breaking existing systems
 
 ### ERC-3643 Ecosystem Integration
-
 The standard provides sufficient functionality for regulated token compliance:
 - Identity verification through claims
-- Trusted issuer attestations
+- Trusted issuer attestations via the claim issuer interface
 - Compliance monitoring through events
 - Integration with existing infrastructure
+
+### Execution Interface Importance
+While the execution interface is technically optional, it is strongly recommended for practical adoption because:
+- Many claim issuers in the existing ecosystem expect to add claims via execution patterns
+- This pattern allows claim issuers to work with identities that have complex permission structures
+- It enables claims to be processed through the identity's own access control mechanisms
+- Without this interface, identities may face compatibility issues with established claim issuer workflows
 
 ## Backwards Compatibility
 
