@@ -205,6 +205,9 @@ The standard provides sufficient functionality for regulated token compliance:
 - Compliance monitoring through events
 - Integration with existing infrastructure
 
+### Universal Attestation Compatibility
+The claim structure defined in this standard is designed to be compatible with established verifiable credential frameworks, including W3C Verifiable Credentials standards. The flexible `scheme`, `data` and `uri` fields enable ONCHAINID to function as an attestation gateway and aggregator, capable of bridging various attestation services such as Ethereum Attestation Service (EAS), eIDAS-compliant identity providers, and traditional KYC/AML solutions. This design allows identity holders to consolidate attestations from multiple sources into a single on-chain identity, while maintaining interoperability with existing credential verification systems and enabling seamless integration with diverse compliance workflows.
+
 ### Execution Interface Importance
 While the execution interface is technically optional, it is strongly recommended for practical adoption because:
 - Many claim issuers in the existing ecosystem expect to add claims via execution patterns
