@@ -223,8 +223,10 @@ This standard is designed to be compatible with existing ERC734/ERC735 implement
 pragma solidity ^0.8.0;
 
 import "./IERC_XXXX_OnChainIdentity.sol";
+import "./IERC_XXXX_ClaimIssuer.sol";
+import "./IERC_XXXX_Execution.sol";
 
-contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
+contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
     
     struct Claim {
         uint256 topic;
@@ -238,6 +240,7 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
     mapping(bytes32 => Claim) private claims;
     mapping(uint256 => bytes32[]) private claimsByTopic;
     mapping(address => bool) private authorizedClaimAdders;
+    uint256 private executionNonce;
     
     modifier onlyAuthorized() {
         require(authorizedClaimAdders[msg.sender] || msg.sender == address(this), "Unauthorized");
@@ -254,9 +257,10 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
     ) external override onlyAuthorized returns (bytes32 claimId) {
         claimId = keccak256(abi.encode(_issuer, _topic));
         
-        if (_issuer != address(this)) {
+        // Validate claim if issuer is external and implements claim issuer interface
+        if (_issuer != address(this) && _supportsInterface(_issuer, type(IERC_XXXX_ClaimIssuer).interfaceId)) {
             require(
-                IERC_XXXX_OnChainIdentity(_issuer).isClaimValid(address(this), _topic, _signature, _data),
+                IERC_XXXX_ClaimIssuer(_issuer).isClaimValid(address(this), _topic, _signature, _data),
                 "Invalid claim"
             );
         }
@@ -298,6 +302,37 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
         return claimsByTopic[_topic];
     }
     
+    function execute(
+        address _to,
+        uint256 _value,
+        bytes calldata _data
+    ) external payable override returns (uint256 executionId) {
+        executionId = executionNonce++;
+        
+        emit ExecutionRequested(executionId, _to, _value, _data);
+        
+        (bool success,) = _to.call{value: _value}(_data);
+        require(success, "Execution failed");
+        
+        emit Executed(executionId, _to, _value, _data);
+        
+        return executionId;
+    }
+    
+    function _supportsInterface(address _contract, bytes4 _interfaceId) internal view returns (bool) {
+        // Simple interface detection - could use ERC165 if needed
+        try IERC165(_contract).supportsInterface(_interfaceId) returns (bool supported) {
+            return supported;
+        } catch {
+            return false;
+        }
+    }
+}
+
+contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
+    
+    mapping(address => bool) private authorizedSigners;
+    
     function isClaimValid(
         address _identity,
         uint256 _claimTopic,
@@ -308,7 +343,7 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
         
         address recovered = _recoverSigner(prefixedHash, _signature);
-        return authorizedClaimAdders[recovered];
+        return authorizedSigners[recovered];
     }
     
     function _recoverSigner(bytes32 _hash, bytes memory _signature) private pure returns (address) {
@@ -330,7 +365,6 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity {
     }
 }
 ```
-
 
 ## Security Considerations
 
