@@ -81,6 +81,18 @@ interface IERC_XXXX_OnChainIdentity {
     );
     
     function getClaimIdsByTopic(uint256 _topic) external view returns (bytes32[] memory claimIds);
+}
+```
+
+### Claim Issuer Interface
+
+Contracts that issue claims to other identities MUST implement this interface:
+
+``` solidity
+// SPDX-License-Identifier: CC0-1.0
+pragma solidity ^0.8.0;
+
+interface IERC_XXXX_ClaimIssuer {
     
     function isClaimValid(
         address _identity,
@@ -90,7 +102,6 @@ interface IERC_XXXX_OnChainIdentity {
     ) external view returns (bool claimValid);
 }
 ```
-
 
 ### Optional Execution Interface
 
