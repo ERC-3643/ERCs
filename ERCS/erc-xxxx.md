@@ -77,7 +77,9 @@ interface IERC_XXXX_OnChainIdentity {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint64 createdAt,
+        uint64 updatedAt
     );
     
     function getClaimIdsByTopic(uint256 _topic) external view returns (bytes32[] memory claimIds);
@@ -238,6 +240,8 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         bytes signature;
         bytes data;
         string uri;
+        uint64 createdAt;   // on-chain creation time (block.timestamp)
+        uint64 updatedAt;   // on-chain last update time (block.timestamp)
     }
     
     mapping(bytes32 => Claim) private claims;
@@ -259,6 +263,7 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         string calldata _uri
     ) external override onlyAuthorized returns (bytes32 claimId) {
         claimId = keccak256(abi.encode(_issuer, _topic));
+        uint64 nowTs = uint64(block.timestamp);
         
         // Validate claim if issuer is external and implements claim issuer interface
         if (_issuer != address(this) && _supportsInterface(_issuer, type(IERC_XXXX_ClaimIssuer).interfaceId)) {
@@ -269,16 +274,19 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         }
         
         bool isNew = claims[claimId].issuer == address(0);
-        
+        uint64 created = isNew ? nowTs : claims[claimId].createdAt;
+
         claims[claimId] = Claim({
             topic: _topic,
             scheme: _scheme,
             issuer: _issuer,
             signature: _signature,
             data: _data,
-            uri: _uri
+            uri: _uri,
+            createdAt: created,
+            updatedAt: nowTs
         });
-        
+
         if (isNew) {
             claimsByTopic[_topic].push(claimId);
             emit ClaimAdded(claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
@@ -295,10 +303,21 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint64 createdAt,
+        uint64 updatedAt
     ) {
         Claim storage claim = claims[_claimId];
-        return (claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+        return (
+            claim.topic,
+            claim.scheme,
+            claim.issuer,
+            claim.signature,
+            claim.data,
+            claim.uri,
+            claim.createdAt,
+            claim.updatedAt
+        );
     }
     
     function getClaimIdsByTopic(uint256 _topic) external view override returns (bytes32[] memory claimIds) {
