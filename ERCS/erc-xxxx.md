@@ -77,9 +77,7 @@ interface IERC_XXXX_OnChainIdentity {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri,
-        uint64 createdAt,
-        uint64 updatedAt
+        string memory uri
     );
     
     function getClaimIdsByTopic(uint256 _topic) external view returns (bytes32[] memory claimIds);
@@ -102,6 +100,73 @@ interface IERC_XXXX_ClaimIssuer {
         bytes calldata _signature,
         bytes calldata _data
     ) external view returns (bool claimValid);
+}
+```
+
+### Claim Data Helper Library
+
+To standardize timestamp and expiry encoding within the data field:
+
+```solidity
+// SPDX-License-Identifier: CC0-1.0
+pragma solidity ^0.8.0;
+
+library ClaimDataHelper {
+    // Standard structure for claim data with timestamps
+    struct ClaimDataWithTimestamps {
+        uint256 issuedAt;      // Unix timestamp when claim was issued
+        uint256 validUntil;    // Unix timestamp when claim expires (0 for permanent)
+        bytes claimData;       // The actual claim data
+    }
+    
+    /**
+     * @dev Encodes claim data with timestamps
+     * @param claimData The actual claim data
+     * @param validitySeconds Duration in seconds (0 for permanent claims)
+     * @return Encoded data containing timestamps and claim data
+     */
+    function encodeWithTimestamps(
+        bytes memory claimData,
+        uint256 validitySeconds
+    ) internal view returns (bytes memory) {
+        uint256 issuedAt = block.timestamp;
+        uint256 validUntil = validitySeconds > 0 ? issuedAt + validitySeconds : 0;
+        
+        return abi.encode(
+            issuedAt,
+            validUntil,
+            claimData
+        );
+    }
+    
+    /**
+     * @dev Decodes claim data with timestamps
+     * @param data The encoded data containing timestamps
+     * @return issuedAt Timestamp when claim was issued
+     * @return validUntil Timestamp when claim expires (0 for permanent)
+     * @return claimData The actual claim data
+     */
+    function decodeWithTimestamps(bytes memory data) 
+        internal 
+        pure 
+        returns (
+            uint256 issuedAt,
+            uint256 validUntil,
+            bytes memory claimData
+        ) 
+    {
+        return abi.decode(data, (uint256, uint256, bytes));
+    }
+    
+    /**
+     * @dev Checks if a claim is currently valid based on timestamps
+     * @param data The encoded data containing timestamps
+     * @return bool True if claim is valid, false if expired
+     */
+    function isValid(bytes memory data) internal view returns (bool) {
+        (,uint256 validUntil,) = decodeWithTimestamps(data);
+        return validUntil == 0 || block.timestamp <= validUntil;
+    }
 }
 ```
 
@@ -147,8 +212,13 @@ interface IERC_XXXX_Execution {
    - MUST emit `ClaimChanged` for updates to existing claims
    - MUST validate claims from external issuers using `isClaimValid`
    - MAY allow self-attested claims without validation
-3. **Claim Retrieval**: MUST return complete claim data including metadata
+   - SHOULD use ClaimDataHelper to encode timestamps within the data field for standardization
+3. **Claim Retrieval**: MUST return complete claim data
 4. **Topic Filtering**: MUST support retrieval of all claims by topic
+5. **Timestamp Encoding**: 
+   - RECOMMENDED to encode timestamps (issuedAt, validUntil) within the data field
+   - This ensures timestamps are part of the signed data and cannot be tampered with
+   - Use ClaimDataHelper library for standardized encoding/decoding
 
 #### Claim Validation
 
@@ -230,6 +300,7 @@ pragma solidity ^0.8.0;
 import "./IERC_XXXX_OnChainIdentity.sol";
 import "./IERC_XXXX_ClaimIssuer.sol";
 import "./IERC_XXXX_Execution.sol";
+import "./ClaimDataHelper.sol";
 
 contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
     
@@ -238,10 +309,8 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         uint256 scheme;
         address issuer;
         bytes signature;
-        bytes data;
+        bytes data;        // Contains encoded timestamps and claim data
         string uri;
-        uint64 createdAt;   // on-chain creation time (block.timestamp)
-        uint64 updatedAt;   // on-chain last update time (block.timestamp)
     }
     
     mapping(bytes32 => Claim) private claims;
@@ -263,7 +332,6 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         string calldata _uri
     ) external override onlyAuthorized returns (bytes32 claimId) {
         claimId = keccak256(abi.encode(_issuer, _topic));
-        uint64 nowTs = uint64(block.timestamp);
         
         // Validate claim if issuer is external and implements claim issuer interface
         if (_issuer != address(this) && _supportsInterface(_issuer, type(IERC_XXXX_ClaimIssuer).interfaceId)) {
@@ -274,17 +342,14 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         }
         
         bool isNew = claims[claimId].issuer == address(0);
-        uint64 created = isNew ? nowTs : claims[claimId].createdAt;
 
         claims[claimId] = Claim({
             topic: _topic,
             scheme: _scheme,
             issuer: _issuer,
             signature: _signature,
-            data: _data,
-            uri: _uri,
-            createdAt: created,
-            updatedAt: nowTs
+            data: _data,  // Data should already contain encoded timestamps
+            uri: _uri
         });
 
         if (isNew) {
@@ -303,9 +368,7 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri,
-        uint64 createdAt,
-        uint64 updatedAt
+        string memory uri
     ) {
         Claim storage claim = claims[_claimId];
         return (
@@ -313,10 +376,8 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
             claim.scheme,
             claim.issuer,
             claim.signature,
-            claim.data,
-            claim.uri,
-            claim.createdAt,
-            claim.updatedAt
+            claim.data,  // Contains encoded timestamps
+            claim.uri
         );
     }
     
@@ -343,8 +404,10 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
 }
 
 contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
+    using ClaimDataHelper for bytes;
     
     mapping(address => bool) private authorizedSigners;
+    mapping(bytes32 => bool) private revokedClaims;
     
     function isClaimValid(
         address _identity,
@@ -352,11 +415,45 @@ contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
         bytes calldata _signature,
         bytes calldata _data
     ) external view override returns (bool claimValid) {
+        // Check if claim has been revoked
+        bytes32 claimId = keccak256(abi.encode(address(this), _claimTopic));
+        if (revokedClaims[claimId]) return false;
+        
+        // Check if claim has expired (using ClaimDataHelper)
+        if (!_data.isValid()) return false;
+        
+        // Verify signature
         bytes32 dataHash = keccak256(abi.encode(_identity, _claimTopic, _data));
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash));
         
         address recovered = _recoverSigner(prefixedHash, _signature);
         return authorizedSigners[recovered];
+    }
+    
+    /**
+     * @dev Issues a new claim with standardized timestamp encoding
+     * @param _identity The identity to issue the claim to
+     * @param _claimTopic The topic of the claim
+     * @param _claimData The actual claim data
+     * @param _validitySeconds How long the claim is valid (0 for permanent)
+     */
+    function issueClaim(
+        address _identity,
+        uint256 _claimTopic,
+        bytes memory _claimData,
+        uint256 _validitySeconds
+    ) external returns (bytes memory signature, bytes memory data) {
+        require(authorizedSigners[msg.sender], "Unauthorized issuer");
+        
+        // Encode claim data with timestamps
+        data = ClaimDataHelper.encodeWithTimestamps(_claimData, _validitySeconds);
+        
+        // Sign the claim
+        bytes32 dataHash = keccak256(abi.encode(_identity, _claimTopic, data));
+        // In production, this would use the issuer's private key
+        signature = new bytes(65); // Placeholder for actual signature
+        
+        return (signature, data);
     }
     
     function _recoverSigner(bytes32 _hash, bytes memory _signature) private pure returns (address) {
@@ -375,6 +472,65 @@ contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
         if (v < 27) v += 27;
         
         return ecrecover(_hash, v, r, s);
+    }
+}
+```
+
+## Usage Examples
+
+### Example: Issuing a Time-Limited KYC Claim
+
+```solidity
+// Claim issuer issuing a KYC claim valid for 1 year
+contract KYCIssuer {
+    using ClaimDataHelper for bytes;
+    
+    function issueKYCClaim(
+        address identity,
+        string memory countryCode,
+        uint8 kycLevel
+    ) external returns (bytes memory signature, bytes memory encodedData) {
+        // Prepare the actual KYC data
+        bytes memory kycData = abi.encode(countryCode, kycLevel, block.timestamp);
+        
+        // Encode with timestamps (valid for 365 days)
+        encodedData = ClaimDataHelper.encodeWithTimestamps(kycData, 365 days);
+        
+        // Sign the claim (simplified)
+        bytes32 dataHash = keccak256(abi.encode(identity, KYC_TOPIC, encodedData));
+        signature = signMessage(dataHash); // Implementation specific
+        
+        // The identity contract would then call addClaim with this data
+        return (signature, encodedData);
+    }
+}
+```
+
+### Example: Verifying Claim Validity
+
+```solidity
+// Verifying a claim's timestamps before relying on it
+contract TokenContract {
+    using ClaimDataHelper for bytes;
+    
+    function checkIdentityKYC(address identity) external view returns (bool) {
+        IERC_XXXX_OnChainIdentity id = IERC_XXXX_OnChainIdentity(identity);
+        bytes32[] memory claimIds = id.getClaimIdsByTopic(KYC_TOPIC);
+        
+        for (uint i = 0; i < claimIds.length; i++) {
+            (,,,, bytes memory data,) = id.getClaim(claimIds[i]);
+            
+            // Check if claim is still valid
+            if (data.isValid()) {
+                // Decode to get the actual KYC data
+                (uint256 issuedAt, uint256 validUntil, bytes memory kycData) = 
+                    ClaimDataHelper.decodeWithTimestamps(data);
+                
+                // Process KYC data...
+                return true;
+            }
+        }
+        return false;
     }
 }
 ```
