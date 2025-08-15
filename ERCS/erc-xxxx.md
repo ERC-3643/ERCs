@@ -2,7 +2,7 @@
 eip: xxxx
 title: ONCHAINID - An Onchain Identity System
 description: Formalizing ONCHAINID, a self-sovereign identity system on Ethereum.
-author: Joachim Lebrun (@Joachim-Lebrun), Luc Falempin (@lfalempin), Tony Malghem (@TonyMalghem)
+author: Joachim Lebrun (@Joachim-Lebrun), Luc Falempin (@lfalempin), Tony Malghem (@TonyMalghem), Sascha Kubisch (@SaschaKubisch)
 discussions-to: //TBD
 status: Draft
 type: Standards Track
