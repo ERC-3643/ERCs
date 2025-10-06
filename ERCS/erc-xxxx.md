@@ -97,6 +97,7 @@ interface IERC_XXXX_ClaimIssuer {
     function isClaimValid(
         address _identity,
         uint256 _claimTopic,
+        uint256 _scheme,
         bytes calldata _signature,
         bytes calldata _data
     ) external view returns (bool claimValid);
@@ -336,7 +337,7 @@ contract OnChainIdentity is IERC_XXXX_OnChainIdentity, IERC_XXXX_Execution {
         // Validate claim if issuer is external and implements claim issuer interface
         if (_issuer != address(this) && _supportsInterface(_issuer, type(IERC_XXXX_ClaimIssuer).interfaceId)) {
             require(
-                IERC_XXXX_ClaimIssuer(_issuer).isClaimValid(address(this), _topic, _signature, _data),
+                IERC_XXXX_ClaimIssuer(_issuer).isClaimValid(address(this), _topic, _scheme, _signature, _data),
                 "Invalid claim"
             );
         }
@@ -412,6 +413,7 @@ contract ClaimIssuer is OnChainIdentity, IERC_XXXX_ClaimIssuer {
     function isClaimValid(
         address _identity,
         uint256 _claimTopic,
+        uint256 _scheme,
         bytes calldata _signature,
         bytes calldata _data
     ) external view override returns (bool claimValid) {
